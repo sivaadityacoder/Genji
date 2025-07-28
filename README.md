@@ -5,6 +5,8 @@
 [![Streamlit](https://img.shields.io/badge/Built%20with-Streamlit-red.svg)](https://streamlit.io/)
 [![Powered by Gemini](https://img.shields.io/badge/AI-Google%20Gemini-4285f4.svg)](https://ai.google.dev/)
 
+**An AI-powered market intelligence platform that provides real-time strategic insights from foreign markets directly to Japanese executives in their native language.**
+
 ## 🌟 Overview
 
 Project Genji is a sophisticated AI-powered market intelligence platform specifically designed for Japanese business executives. Named after the classical Japanese literary work "Genji Monogatari" (The Tale of Genji), this platform bridges traditional Japanese business wisdom with cutting-edge artificial intelligence technology.
@@ -287,4 +289,15 @@ For questions and support:
 
 **Project Genji (源氏)** - *Transforming global intelligence for Japanese business excellence*
 
+---
+
 🇯🇵 Made with ❤️ for Japanese business executives
+
+---
+
+## 📚 Additional Resources
+
+For more detailed information, please refer to:
+- [**Technical Documentation**](./TECHNICAL_DOC.md) - Comprehensive setup and development guide
+- [**User Manual**](./USER_MANUAL.md) - Complete user guide and feature documentation  
+- [**Research Paper**](./RESEARCH_PAPER.md) - Academic research and methodology behind Project Genji
