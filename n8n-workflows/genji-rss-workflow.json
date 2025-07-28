@@ -1,0 +1,186 @@
+{
+  "name": "Project Genji - RSS to AI Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */4 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Run Every 4 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://feeds.feedburner.com/TechCrunch",
+        "options": {}
+      },
+      "id": "rss-feed-reader",
+      "name": "Fetch Tech News RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Transform RSS items for Project Genji\nconst items = [];\n\nfor (const item of $input.all()) {\n  items.push({\n    json: {\n      title: item.json.title,\n      content: item.json.contentSnippet || item.json.description,\n      link: item.json.link,\n      pubDate: item.json.pubDate || item.json.isoDate,\n      category: 'Technology',\n      source: 'TechCrunch RSS'\n    }\n  });\n}\n\nreturn items;"
+      },
+      "id": "transform-data",
+      "name": "Transform for Genji",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5000/webhook/n8n/article",
+        "options": {
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        },
+        "requestMethod": "POST"
+      },
+      "id": "send-to-genji",
+      "name": "Send to Project Genji",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.success}}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-success",
+      "name": "Analysis Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Log successful analysis\nconsole.log('Article analyzed successfully:', $json.article_id);\nconsole.log('Analysis result:', $json.analysis);\n\nreturn [{\n  json: {\n    status: 'success',\n    article_id: $json.article_id,\n    sentiment: $json.analysis?.sentiment_label,\n    business_impact: $json.analysis?.business_impact,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Log failed analysis\nconsole.error('Article analysis failed:', $json.error);\n\nreturn [{\n  json: {\n    status: 'failed',\n    error: $json.error,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "log-error",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Run Every 4 Hours": {
+      "main": [
+        [
+          {
+            "node": "Fetch Tech News RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Tech News RSS": {
+      "main": [
+        [
+          {
+            "node": "Transform for Genji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform for Genji": {
+      "main": [
+        [
+          {
+            "node": "Send to Project Genji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Project Genji": {
+      "main": [
+        [
+          {
+            "node": "Analysis Successful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analysis Successful?": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1.0.0",
+  "id": "project-genji-rss-analysis"
+}

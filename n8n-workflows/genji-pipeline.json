@@ -1,0 +1,95 @@
+{
+  "name": "Project Genji - Complete Data Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "number": 4,
+              "unit": "hours"
+            }
+          ]
+        }
+      },
+      "name": "Schedule Every 4 Hours",
+      "type": "n8n-nodes-base.schedule",
+      "typeVersion": 1,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "command": "cd /home/coder/startup/genji && python python-analysis-module/data_collector.py"
+      },
+      "name": "Collect Data",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "command": "cd /home/coder/startup/genji && python python-analysis-module/main.py"
+      },
+      "name": "Run AI Analysis",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "operation": "database",
+        "query": "SELECT COUNT(*) as processed_articles FROM market_insights WHERE analyzed_at > NOW() - INTERVAL '1 hour'",
+        "additionalFields": {}
+      },
+      "name": "Check Processing Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIAL_ID",
+          "name": "Project Genji Database"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Every 4 Hours": {
+      "main": [
+        [
+          {
+            "node": "Collect Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Data": {
+      "main": [
+        [
+          {
+            "node": "Run AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Check Processing Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "Asia/Tokyo"
+  }
+}

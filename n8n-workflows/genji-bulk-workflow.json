@@ -1,0 +1,140 @@
+{
+  "name": "Project Genji - Multi-Source RSS Bulk Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression", 
+              "expression": "0 */6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "bulk-schedule",
+      "name": "Run Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Define multiple RSS sources for Project Genji\nconst rssSources = [\n  {\n    name: 'TechCrunch',\n    url: 'https://feeds.feedburner.com/TechCrunch',\n    category: 'Technology'\n  },\n  {\n    name: 'BBC Technology',\n    url: 'http://feeds.bbci.co.uk/news/technology/rss.xml',\n    category: 'Technology'\n  },\n  {\n    name: 'Reuters Business',\n    url: 'https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best',\n    category: 'Business'\n  },\n  {\n    name: 'Hacker News',\n    url: 'https://news.ycombinator.com/rss',\n    category: 'Technology'\n  }\n];\n\nreturn rssSources.map(source => ({ json: source }));"
+      },
+      "id": "define-sources",
+      "name": "Define RSS Sources",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "options": {}
+      },
+      "id": "fetch-multiple-rss",
+      "name": "Fetch Each RSS Feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Collect all articles from all RSS sources\nconst allArticles = [];\n\nfor (const item of $input.all()) {\n  const sourceInfo = $('Define RSS Sources').item(item.index);\n  \n  allArticles.push({\n    title: item.json.title,\n    content: item.json.contentSnippet || item.json.description || item.json.summary,\n    link: item.json.link,\n    pubDate: item.json.pubDate || item.json.isoDate,\n    category: sourceInfo.json.category,\n    source: sourceInfo.json.name\n  });\n}\n\n// Group into batches of 10 for processing\nconst batchSize = 10;\nconst batches = [];\n\nfor (let i = 0; i < allArticles.length; i += batchSize) {\n  batches.push({\n    articles: allArticles.slice(i, i + batchSize)\n  });\n}\n\nreturn batches.map(batch => ({ json: batch }));"
+      },
+      "id": "collect-and-batch",
+      "name": "Collect & Batch Articles",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5000/webhook/n8n/articles",
+        "options": {
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        },
+        "requestMethod": "POST"
+      },
+      "id": "bulk-send-genji",
+      "name": "Send Batch to Genji",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process and log bulk analysis results\nconst results = $json.results;\n\nconsole.log(`Bulk Analysis Results:`);\nconsole.log(`Total articles: ${results.total_articles}`);\nconsole.log(`Successful: ${results.successful}`);\nconsole.log(`Failed: ${results.failed}`);\n\nif (results.errors.length > 0) {\n  console.log('Errors:', results.errors);\n}\n\n// Create summary for monitoring\nreturn [{\n  json: {\n    batch_id: `batch-${new Date().getTime()}`,\n    timestamp: new Date().toISOString(),\n    total_articles: results.total_articles,\n    successful_analyses: results.successful,\n    failed_analyses: results.failed,\n    success_rate: ((results.successful / results.total_articles) * 100).toFixed(2) + '%',\n    processed_article_ids: results.processed_ids,\n    errors: results.errors\n  }\n}];"
+      },
+      "id": "process-results",
+      "name": "Process Bulk Results",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1300, 300]
+    }
+  ],
+  "connections": {
+    "Run Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Define RSS Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Define RSS Sources": {
+      "main": [
+        [
+          {
+            "node": "Fetch Each RSS Feed", 
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Each RSS Feed": {
+      "main": [
+        [
+          {
+            "node": "Collect & Batch Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect & Batch Articles": {
+      "main": [
+        [
+          {
+            "node": "Send Batch to Genji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Batch to Genji": {
+      "main": [
+        [
+          {
+            "node": "Process Bulk Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "versionId": "1.0.0",
+  "id": "project-genji-bulk-rss-analysis"
+}

@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-genji_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docs/database_setup.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - genji-network
+
+  prefect-server:
+    image: prefecthq/prefect:2-python3.11
+    command: prefect server start --host 0.0.0.0 --port 4200
+    environment:
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_SERVER_API_PORT=4200
+      - PREFECT_API_URL=http://prefect-server:4200/api
+      - PREFECT_SERVER_DATABASE_CONNECTION_URL=postgresql+asyncpg://postgres:${DB_PASSWORD:-genji_password}@postgres:5432/prefect
+    ports:
+      - "4200:4200"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - prefect_data:/opt/prefect
+    networks:
+      - genji-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4200/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  prefect-agent:
+    build: .
+    command: prefect agent start -p default-agent-pool
+    environment:
+      - PREFECT_API_URL=http://prefect-server:4200/api
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-genji_password}
+      - PYTHONPATH=/app
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+      - ./python-analysis-module/.env:/app/python-analysis-module/.env:ro
+    networks:
+      - genji-network
+    restart: unless-stopped
+
+  genji-dashboard:
+    build: .
+    command: streamlit run streamlit-dashboard/app.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-genji_password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./python-analysis-module/.env:/app/python-analysis-module/.env:ro
+    networks:
+      - genji-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  prefect_data:
+
+networks:
+  genji-network:
+    driver: bridge
